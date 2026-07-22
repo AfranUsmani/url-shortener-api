@@ -29,12 +29,12 @@ A production-grade URL shortener REST API built with **Java 21 + Spring Boot 3**
 
 ```mermaid
 flowchart LR
-    Client -->|POST /api/v1/urls| API[Spring Boot API]
-    Client -->|GET /{code}| API
-    API --> Service[UrlService]
-    Service -->|cache-aside| Cache[(Redis / in-memory)]
-    Service -->|miss| DB[(PostgreSQL / H2)]
-    API -.->|/actuator/prometheus| Prometheus[(Prometheus)]
+    Client -->|"POST /api/v1/urls"| API["Spring Boot API"]
+    Client -->|"GET /:code"| API
+    API --> Service["UrlService"]
+    Service -->|"cache-aside"| Cache[("Redis / in-memory")]
+    Service -->|"miss"| DB[("PostgreSQL / H2")]
+    API -.->|"/actuator/prometheus"| Prometheus[("Prometheus")]
 ```
 
 **Request flow for a redirect:**
@@ -45,17 +45,17 @@ sequenceDiagram
     participant A as API
     participant Ca as Cache
     participant D as Database
-    C->>A: GET /{shortCode}
+    C->>A: GET /:shortCode
     A->>Ca: resolve(shortCode)
     alt cache hit
         Ca-->>A: originalUrl
     else cache miss
         Ca->>D: findByShortCode
-        D-->>Ca: originalUrl (cached)
+        D-->>Ca: originalUrl (then cached)
         Ca-->>A: originalUrl
     end
-    A->>D: incrementHitCount (async of read path)
-    A-->>C: 302 Found -> originalUrl
+    A->>D: incrementHitCount
+    A-->>C: 302 Found (Location header)
 ```
 
 ---
