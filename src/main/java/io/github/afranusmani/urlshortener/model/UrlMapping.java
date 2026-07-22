@@ -1,0 +1,94 @@
+package io.github.afranusmani.urlshortener.model;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import io.github.afranusmani.urlshortener.service.Base62;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.SequenceGenerator;
+import jakarta.persistence.Table;
+
+import java.time.Instant;
+
+/**
+ * Persistent mapping between a generated short code and its original long URL.
+ *
+ * <p>The numeric {@code id} is used as the seed for Base62 short-code generation,
+ * guaranteeing globally unique, collision-free codes without extra lookups.
+ */
+@Entity
+@Table(
+        name = "url_mapping",
+        indexes = @Index(name = "idx_url_mapping_short_code", columnList = "short_code", unique = true)
+)
+public class UrlMapping {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "url_mapping_seq")
+    @SequenceGenerator(name = "url_mapping_seq", sequenceName = "url_mapping_seq", allocationSize = 1)
+    private Long id;
+
+    @Column(name = "short_code", nullable = false, unique = true, length = 16)
+    private String shortCode;
+
+    @Column(name = "original_url", nullable = false, length = 2048)
+    private String originalUrl;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @Column(name = "hit_count", nullable = false)
+    private long hitCount;
+
+    protected UrlMapping() {
+        // Required by JPA.
+    }
+
+    public UrlMapping(String originalUrl) {
+        this.originalUrl = originalUrl;
+        this.createdAt = Instant.now();
+        this.hitCount = 0L;
+    }
+
+    /**
+     * Derives the short code from the (already-assigned) sequence id at persist
+     * time, so the single INSERT carries a non-null {@code short_code}.
+     */
+    @PrePersist
+    public void assignShortCode() {
+        if (this.shortCode == null && this.id != null) {
+            this.shortCode = Base62.encode(this.id);
+        }
+    }
+
+    public void incrementHitCount() {
+        this.hitCount++;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getShortCode() {
+        return shortCode;
+    }
+
+    public void setShortCode(String shortCode) {
+        this.shortCode = shortCode;
+    }
+
+    public String getOriginalUrl() {
+        return originalUrl;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public long getHitCount() {
+        return hitCount;
+    }
+}

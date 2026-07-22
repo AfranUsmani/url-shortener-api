@@ -1,0 +1,76 @@
+# ---------------------------------------------------------------------------
+# Default profile: zero-infra local run (in-memory H2 + in-memory cache).
+# Just `mvn spring-boot:run` — no database or Redis needed.
+# ---------------------------------------------------------------------------
+spring:
+  application:
+    name: url-shortener-api
+  datasource:
+    url: jdbc:h2:mem:urlshortener;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  cache:
+    type: simple
+  h2:
+    console:
+      enabled: true
+
+app:
+  base-url: http://localhost:8080
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      enabled: false   # no Redis in the default profile
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+---
+# ---------------------------------------------------------------------------
+# Docker profile: production-like stack (PostgreSQL + Redis cache).
+# Activated via SPRING_PROFILES_ACTIVE=docker (see docker-compose.yml).
+# ---------------------------------------------------------------------------
+spring:
+  config:
+    activate:
+      on-profile: docker
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/${DB_NAME:urlshortener}
+    driver-class-name: org.postgresql.Driver
+    username: ${DB_USER:urlshortener}
+    password: ${DB_PASSWORD:urlshortener}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  cache:
+    type: redis
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+
+app:
+  base-url: ${APP_BASE_URL:http://localhost:8080}
+
+management:
+  health:
+    redis:
+      enabled: true
