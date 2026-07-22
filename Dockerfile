@@ -20,4 +20,7 @@ USER appuser
 COPY --from=build /app/target/url-shortener-api-1.0.0.jar app.jar
 
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+
+# Cap the heap relative to the container's memory limit so the JVM stays within
+# small free-tier instances (e.g. 512 MB) instead of being OOM-killed.
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]

@@ -21,10 +21,12 @@ spring:
       enabled: true
 
 app:
-  base-url: http://localhost:8080
+  # Set APP_BASE_URL to the public host once deployed so `shortUrl` reflects it.
+  base-url: ${APP_BASE_URL:http://localhost:8080}
 
 server:
-  port: 8080
+  # Cloud platforms (Render, Cloud Run, Koyeb, ...) inject the port via $PORT.
+  port: ${PORT:8080}
 
 management:
   endpoints:
