@@ -11,6 +11,22 @@ A production-grade URL shortener REST API built with **Java 21 + Spring Boot 3**
 
 ---
 
+## 🌐 Live Demo
+
+- **API base:** https://url-shortener-api.onrender.com
+- **Swagger UI:** https://url-shortener-api.onrender.com/swagger-ui.html
+- **Health:** https://url-shortener-api.onrender.com/actuator/health
+
+```bash
+curl -X POST https://url-shortener-api.onrender.com/api/v1/urls \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://spring.io/projects/spring-boot"}'
+```
+
+> ⏳ Hosted on a free tier that sleeps when idle — the **first request after inactivity may take ~30–60s** to wake the instance, then it's fast. Demo data is stored in-memory (H2) and resets on restart.
+
+---
+
 ## ✨ Features
 
 - **REST API** to create short links and fetch per-link hit statistics.
