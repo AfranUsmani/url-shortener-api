@@ -91,11 +91,15 @@ class UrlControllerIT {
     }
 
     @Test
-    void rootRedirectsToSwaggerUi() {
-        ResponseEntity<Void> response = rest.getForEntity("/", Void.class);
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FOUND);
-        assertThat(response.getHeaders().getLocation())
-                .hasToString("/swagger-ui.html");
+    void rootServesTheDashboard() {
+        ResponseEntity<String> response = rest.getForEntity("/", String.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getHeaders().getContentType())
+                .isNotNull()
+                .satisfies(ct -> assertThat(ct.toString()).contains("text/html"));
+        assertThat(response.getBody())
+                .contains("URL Shortener")
+                .contains("id=\"create-form\"");
     }
 
     @Test

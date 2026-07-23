@@ -37,7 +37,7 @@ The cause: **Spring Boot disables metrics export inside `@SpringBootTest` by def
 
 ## Why this matters
 
-Both bugs were invisible to unit tests with mocks. They only appeared when the code met a real database and a real server. That's the whole point of the test pyramid having an integration layer — and the reason I don't consider generated or hand-written code "done" until I've watched it run. The final suite is 19 tests: fast unit tests for the encoder and service logic, and end-to-end integration tests against a live server covering create → redirect → stats, validation, error handling, the root redirect, and the Prometheus endpoint.
+Both bugs were invisible to unit tests with mocks. They only appeared when the code met a real database and a real server. That's the whole point of the test pyramid having an integration layer — and the reason I don't consider generated or hand-written code "done" until I've watched it run. The final suite is 19 tests: fast unit tests for the encoder and service logic, and end-to-end integration tests against a live server covering create → redirect → stats, validation, error handling, the dashboard served at the root path, and the Prometheus endpoint.
 
 ## Takeaways
 
