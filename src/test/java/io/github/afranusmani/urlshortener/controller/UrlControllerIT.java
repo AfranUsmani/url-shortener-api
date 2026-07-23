@@ -91,6 +91,14 @@ class UrlControllerIT {
     }
 
     @Test
+    void rootRedirectsToSwaggerUi() {
+        ResponseEntity<Void> response = rest.getForEntity("/", Void.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FOUND);
+        assertThat(response.getHeaders().getLocation())
+                .hasToString("/swagger-ui.html");
+    }
+
+    @Test
     void exposesPrometheusMetrics() {
         ResponseEntity<String> response =
                 rest.getForEntity("/actuator/prometheus", String.class);
