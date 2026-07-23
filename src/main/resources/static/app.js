@@ -3,46 +3,56 @@
  *
  * The API intentionally has no "list all links" endpoint (a short link is only
  * meaningful to whoever created it), so this dashboard remembers the links you
- * create in this browser via localStorage and refreshes their click counts from
- * GET /api/v1/urls/{code}. All calls are same-origin against the hosting app.
+ * create in this browser via localStorage and refreshes their click counts and
+ * analytics from the API. All calls are same-origin against the hosting app.
  */
 (() => {
     "use strict";
 
-    const STORAGE_KEY = "snip.links.v1";
+    const STORAGE_KEY = "snip.links.v2";
     const API = "/api/v1/urls";
 
     // ---- DOM refs -------------------------------------------------------------
-    const form = document.getElementById("create-form");
-    const urlInput = document.getElementById("url-input");
-    const createBtn = document.getElementById("create-btn");
+    const $ = (id) => document.getElementById(id);
+    const form = $("create-form");
+    const urlInput = $("url-input");
+    const aliasInput = $("alias-input");
+    const aliasPrefix = $("alias-prefix");
+    const expirySelect = $("expiry-select");
+    const advToggle = $("adv-toggle");
+    const advOptions = $("adv-options");
+    const createBtn = $("create-btn");
     const btnLabel = createBtn.querySelector(".btn-label");
     const spinner = createBtn.querySelector(".spinner");
-    const formError = document.getElementById("form-error");
-    const coldNote = document.getElementById("cold-note");
+    const formError = $("form-error");
+    const coldNote = $("cold-note");
 
-    const result = document.getElementById("result");
-    const resultShort = document.getElementById("result-short");
-    const resultOriginal = document.getElementById("result-original");
-    const copyBtn = document.getElementById("copy-btn");
-    const openBtn = document.getElementById("open-btn");
+    const result = $("result");
+    const resultShort = $("result-short");
+    const resultOriginal = $("result-original");
+    const resultExpiry = $("result-expiry");
+    const resultQrImg = $("result-qr-img");
+    const resultQrDl = $("result-qr-dl");
+    const copyBtn = $("copy-btn");
+    const openBtn = $("open-btn");
 
-    const statLinks = document.getElementById("stat-links");
-    const statClicks = document.getElementById("stat-clicks");
-    const statTop = document.getElementById("stat-top");
+    const statLinks = $("stat-links");
+    const statClicks = $("stat-clicks");
+    const statTop = $("stat-top");
 
-    const emptyState = document.getElementById("empty-state");
-    const tableWrap = document.getElementById("table-wrap");
-    const linksBody = document.getElementById("links-body");
-    const refreshBtn = document.getElementById("refresh-btn");
-    const clearBtn = document.getElementById("clear-btn");
+    const emptyState = $("empty-state");
+    const tableWrap = $("table-wrap");
+    const linksBody = $("links-body");
+    const refreshBtn = $("refresh-btn");
+    const clearBtn = $("clear-btn");
 
-    const healthPill = document.getElementById("health-pill");
-    const healthText = document.getElementById("health-text");
-    const toast = document.getElementById("toast");
+    const healthPill = $("health-pill");
+    const healthText = $("health-text");
+    const toast = $("toast");
+    const modal = $("modal");
+    const modalContent = $("modal-content");
 
     // ---- storage --------------------------------------------------------------
-    /** @returns {Array<{shortCode,shortUrl,originalUrl,hitCount,createdAt}>} */
     function loadLinks() {
         try {
             const raw = localStorage.getItem(STORAGE_KEY);
@@ -51,11 +61,9 @@
             return [];
         }
     }
-
     function saveLinks(links) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
     }
-
     let links = loadLinks();
 
     // ---- helpers --------------------------------------------------------------
@@ -79,10 +87,21 @@
         return new Date(iso).toLocaleDateString();
     }
 
+    /** Future-facing relative time, e.g. "in 3h", "in 5d". */
+    function untilTime(iso) {
+        const secs = Math.round((new Date(iso).getTime() - Date.now()) / 1000);
+        if (secs <= 0) return "expired";
+        if (secs < 3600) return `in ${Math.max(1, Math.round(secs / 60))}m`;
+        if (secs < 86400) return `in ${Math.round(secs / 3600)}h`;
+        return `in ${Math.round(secs / 86400)}d`;
+    }
+
+    const isExpired = (l) => l.expiresAt && new Date(l.expiresAt).getTime() <= Date.now();
+    const qrPath = (code, size) => `${API}/${encodeURIComponent(code)}/qr${size ? `?size=${size}` : ""}`;
+
     function showToast(msg) {
         toast.textContent = msg;
         toast.hidden = false;
-        // reflow so the transition re-triggers on rapid successive toasts
         void toast.offsetWidth;
         toast.classList.add("show");
         clearTimeout(showToast._t);
@@ -97,13 +116,9 @@
             await navigator.clipboard.writeText(text);
             showToast("Copied to clipboard");
         } catch {
-            // Fallback for non-secure contexts (e.g. plain http on a LAN IP).
             const ta = document.createElement("textarea");
-            ta.value = text;
-            ta.style.position = "fixed";
-            ta.style.opacity = "0";
-            document.body.appendChild(ta);
-            ta.select();
+            ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+            document.body.appendChild(ta); ta.select();
             try { document.execCommand("copy"); showToast("Copied to clipboard"); }
             catch { showToast("Copy failed — select and copy manually"); }
             document.body.removeChild(ta);
@@ -115,12 +130,16 @@
         const totalClicks = links.reduce((sum, l) => sum + (l.hitCount || 0), 0);
         statLinks.textContent = links.length;
         statClicks.textContent = totalClicks;
-
         const top = links.reduce(
-            (best, l) => (l.hitCount || 0) > (best?.hitCount || 0) ? l : best,
-            null
-        );
+            (best, l) => (l.hitCount || 0) > (best?.hitCount || 0) ? l : best, null);
         statTop.textContent = top && top.hitCount > 0 ? `/${top.shortCode}` : "—";
+    }
+
+    function expiryTag(l) {
+        if (!l.expiresAt) return "";
+        return isExpired(l)
+            ? `<span class="expiry-tag dead">expired</span>`
+            : `<span class="expiry-tag live" title="${escapeHtml(new Date(l.expiresAt).toLocaleString())}">${untilTime(l.expiresAt)}</span>`;
     }
 
     function renderLinks() {
@@ -133,31 +152,29 @@
         emptyState.hidden = true;
         tableWrap.hidden = false;
 
-        // Newest first.
-        const ordered = [...links].sort(
-            (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-        );
-
+        const ordered = [...links].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         linksBody.innerHTML = ordered.map((l) => {
             const short = escapeHtml(l.shortUrl);
             const code = escapeHtml(l.shortCode);
             const original = escapeHtml(l.originalUrl);
+            const dead = isExpired(l) ? " is-expired" : "";
             return `
                 <tr data-code="${code}">
-                    <td><a class="cell-short" href="${short}" target="_blank" rel="noopener">/${code}</a></td>
+                    <td><a class="cell-short${dead}" href="${short}" target="_blank" rel="noopener">/${code}</a>${expiryTag(l)}</td>
                     <td class="cell-dest"><a href="${original}" target="_blank" rel="noopener" title="${original}">${original}</a></td>
                     <td class="col-clicks"><span class="clicks-badge">${l.hitCount || 0}</span></td>
                     <td class="col-created muted">${relativeTime(l.createdAt)}</td>
                     <td class="col-actions">
                         <div class="row-actions">
                             <button class="icon-btn" data-act="copy" title="Copy short link">⧉</button>
+                            <button class="icon-btn" data-act="qr" title="Show QR code">▦</button>
+                            <button class="icon-btn" data-act="analytics" title="Click analytics">📊</button>
                             <button class="icon-btn" data-act="stats" title="Refresh clicks">↻</button>
                             <button class="icon-btn danger" data-act="remove" title="Remove from this list">✕</button>
                         </div>
                     </td>
                 </tr>`;
         }).join("");
-
         renderStats();
     }
 
@@ -169,48 +186,48 @@
         renderLinks();
     }
 
-    // ---- API calls ------------------------------------------------------------
+    // ---- create ---------------------------------------------------------------
     function setLoading(on) {
         createBtn.disabled = on;
         spinner.hidden = !on;
         btnLabel.textContent = on ? "Shortening…" : "Shorten";
     }
 
+    function readOptions() {
+        const opts = {};
+        const alias = aliasInput.value.trim();
+        if (alias) opts.customAlias = alias;
+        const ttl = parseInt(expirySelect.value, 10);
+        if (ttl > 0) opts.expiresAt = new Date(Date.now() + ttl * 1000).toISOString();
+        return opts;
+    }
+
     async function createLink(url) {
         formError.hidden = true;
         setLoading(true);
-        // A cold free-tier instance can take a while — hint after a short delay.
         const coldTimer = setTimeout(() => { coldNote.hidden = false; }, 2500);
-
         try {
             const res = await fetch(API, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ url }),
+                body: JSON.stringify({ url, ...readOptions() }),
             });
-
             if (!res.ok) {
                 let msg = `Request failed (${res.status})`;
                 try {
                     const err = await res.json();
-                    if (err && Array.isArray(err.messages) && err.messages.length) {
-                        msg = err.messages.join("; ");
-                    } else if (err && err.error) {
-                        msg = err.error;
-                    }
+                    if (err && Array.isArray(err.messages) && err.messages.length) msg = err.messages.join("; ");
+                    else if (err && err.error) msg = err.error;
                 } catch { /* non-JSON error body */ }
+                if (res.status === 409) msg = "That alias is already taken — try another.";
                 throw new Error(msg);
             }
-
             const data = await res.json();
             upsertLink(data);
-
-            resultShort.textContent = data.shortUrl;
-            resultShort.href = data.shortUrl;
-            resultOriginal.textContent = data.originalUrl;
-            result.hidden = false;
-            result.dataset.short = data.shortUrl;
+            showResult(data);
             urlInput.value = "";
+            aliasInput.value = "";
+            expirySelect.value = "0";
             showToast("Short link created");
         } catch (e) {
             formError.textContent = e.message || "Something went wrong.";
@@ -222,6 +239,24 @@
         }
     }
 
+    function showResult(data) {
+        resultShort.textContent = data.shortUrl;
+        resultShort.href = data.shortUrl;
+        resultOriginal.textContent = data.originalUrl;
+        result.dataset.short = data.shortUrl;
+        resultQrImg.src = qrPath(data.shortCode, 240);
+        resultQrDl.href = qrPath(data.shortCode, 600);
+        resultQrDl.setAttribute("download", `${data.shortCode}-qr.png`);
+        if (data.expiresAt) {
+            resultExpiry.textContent = `⏳ Expires ${untilTime(data.expiresAt)} · ${new Date(data.expiresAt).toLocaleString()}`;
+            resultExpiry.hidden = false;
+        } else {
+            resultExpiry.hidden = true;
+        }
+        result.hidden = false;
+    }
+
+    // ---- stats refresh --------------------------------------------------------
     async function refreshOne(code) {
         const res = await fetch(`${API}/${encodeURIComponent(code)}`);
         if (!res.ok) throw new Error(`stats ${res.status}`);
@@ -234,41 +269,98 @@
         const original = refreshBtn.textContent;
         refreshBtn.textContent = "↻ Refreshing…";
         let gone = 0;
-
-        const results = await Promise.allSettled(
-            links.map((l) => refreshOne(l.shortCode))
-        );
-
+        const results = await Promise.allSettled(links.map((l) => refreshOne(l.shortCode)));
         const fresh = [];
         results.forEach((r, i) => {
-            if (r.status === "fulfilled") {
-                fresh.push({ ...links[i], ...r.value });
-            } else if (/\b404\b/.test(r.reason?.message || "")) {
-                // The server restarted / link expired — drop it from the list.
-                gone += 1;
-            } else {
-                fresh.push(links[i]); // keep as-is on transient errors
-            }
+            if (r.status === "fulfilled") fresh.push({ ...links[i], ...r.value });
+            else if (/\b404\b/.test(r.reason?.message || "")) gone += 1;
+            else fresh.push(links[i]);
         });
-
         links = fresh;
         saveLinks(links);
         renderLinks();
         flashBadges();
-
         refreshBtn.disabled = false;
         refreshBtn.textContent = original;
-        showToast(gone > 0
-            ? `Clicks updated · ${gone} stale link(s) removed`
-            : "Clicks updated");
+        showToast(gone > 0 ? `Clicks updated · ${gone} stale link(s) removed` : "Clicks updated");
     }
 
     function flashBadges() {
         linksBody.querySelectorAll(".clicks-badge").forEach((b) => {
-            b.classList.remove("bump");
-            void b.offsetWidth;
-            b.classList.add("bump");
+            b.classList.remove("bump"); void b.offsetWidth; b.classList.add("bump");
         });
+    }
+
+    // ---- modal (QR + analytics) ----------------------------------------------
+    function openModal(html) {
+        modalContent.innerHTML = html;
+        modal.hidden = false;
+    }
+    function closeModal() {
+        modal.hidden = true;
+        modalContent.innerHTML = "";
+    }
+    modal.addEventListener("click", (e) => { if (e.target.hasAttribute("data-close")) closeModal(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !modal.hidden) closeModal(); });
+
+    function showQrModal(link) {
+        openModal(`
+            <div class="qr-modal">
+                <p class="modal-title">/${escapeHtml(link.shortCode)}</p>
+                <p class="modal-sub">${escapeHtml(link.shortUrl)}</p>
+                <img src="${qrPath(link.shortCode, 300)}" width="240" height="240" alt="QR code" />
+                <div><a class="btn-ghost" href="${qrPath(link.shortCode, 600)}" download="${escapeHtml(link.shortCode)}-qr.png">Download PNG</a></div>
+            </div>`);
+    }
+
+    function bars(title, map) {
+        const entries = Object.entries(map || {});
+        if (entries.length === 0) return `<div class="an-section"><h4>${title}</h4><div class="an-empty small">No data yet</div></div>`;
+        const max = Math.max(...entries.map(([, v]) => v), 1);
+        const rows = entries.slice(0, 6).map(([name, val]) => `
+            <div class="an-bar-row">
+                <span class="name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
+                <span class="an-bar-track"><span class="an-bar-fill" style="width:${(val / max) * 100}%"></span></span>
+                <span class="val">${val}</span>
+            </div>`).join("");
+        return `<div class="an-section"><h4>${title}</h4>${rows}</div>`;
+    }
+
+    function timeline(days) {
+        if (!days || days.length === 0) return "";
+        const max = Math.max(...days.map((d) => d.count), 1);
+        const cols = days.map((d) => {
+            const pct = (d.count / max) * 100;
+            const zero = d.count === 0 ? " zero" : "";
+            return `<div class="an-day" title="${d.date}: ${d.count}"><span class="col${zero}" style="height:${Math.max(pct, 2)}%"></span></div>`;
+        }).join("");
+        const first = days[0].date.slice(5), last = days[days.length - 1].date.slice(5);
+        return `<div class="an-section"><h4>Clicks · last ${days.length} days</h4>
+            <div class="an-timeline">${cols}</div>
+            <div class="an-axis"><span>${first}</span><span>${last}</span></div></div>`;
+    }
+
+    async function showAnalyticsModal(link) {
+        openModal(`<div class="qr-modal"><p class="modal-title">/${escapeHtml(link.shortCode)}</p>
+            <p class="modal-sub">Loading analytics…</p></div>`);
+        try {
+            const res = await fetch(`${API}/${encodeURIComponent(link.shortCode)}/analytics`);
+            if (!res.ok) throw new Error(String(res.status));
+            const a = await res.json();
+            openModal(`
+                <p class="modal-title">/${escapeHtml(a.shortCode)}</p>
+                <p class="modal-sub">${escapeHtml(link.originalUrl)}</p>
+                <div class="an-total"><span class="num">${a.totalClicks}</span><span class="lbl">Total clicks</span></div>
+                ${timeline(a.clicksByDay)}
+                ${bars("Devices", a.byDevice)}
+                ${bars("Browsers", a.byBrowser)}
+                ${bars("Sources", a.byReferrer)}
+                ${a.totalClicks === 0 ? '<div class="an-empty small">No clicks yet — open the short link to generate some.</div>' : ""}
+            `);
+        } catch {
+            openModal(`<div class="qr-modal"><p class="modal-title">/${escapeHtml(link.shortCode)}</p>
+                <p class="an-empty">Couldn't load analytics.</p></div>`);
+        }
     }
 
     // ---- health ---------------------------------------------------------------
@@ -292,29 +384,35 @@
         if (url) createLink(url);
     });
 
-    copyBtn.addEventListener("click", () => {
-        if (result.dataset.short) copyText(result.dataset.short);
+    advToggle.addEventListener("click", () => {
+        const open = advOptions.hidden;
+        advOptions.hidden = !open;
+        advToggle.setAttribute("aria-expanded", String(open));
     });
-    openBtn.addEventListener("click", () => {
-        if (result.dataset.short) window.open(result.dataset.short, "_blank", "noopener");
-    });
+
+    copyBtn.addEventListener("click", () => { if (result.dataset.short) copyText(result.dataset.short); });
+    openBtn.addEventListener("click", () => { if (result.dataset.short) window.open(result.dataset.short, "_blank", "noopener"); });
 
     linksBody.addEventListener("click", async (e) => {
         const btn = e.target.closest(".icon-btn");
         if (!btn) return;
-        const row = btn.closest("tr");
-        const code = row?.dataset.code;
+        const code = btn.closest("tr")?.dataset.code;
         const link = links.find((l) => l.shortCode === code);
         if (!link) return;
+        const act = btn.dataset.act;
 
-        if (btn.dataset.act === "copy") {
+        if (act === "copy") {
             copyText(link.shortUrl);
-        } else if (btn.dataset.act === "remove") {
+        } else if (act === "qr") {
+            showQrModal(link);
+        } else if (act === "analytics") {
+            showAnalyticsModal(link);
+        } else if (act === "remove") {
             links = links.filter((l) => l.shortCode !== code);
             saveLinks(links);
             renderLinks();
             showToast("Removed from list");
-        } else if (btn.dataset.act === "stats") {
+        } else if (act === "stats") {
             btn.textContent = "…";
             try {
                 const data = await refreshOne(code);
@@ -329,7 +427,6 @@
     });
 
     refreshBtn.addEventListener("click", refreshAll);
-
     clearBtn.addEventListener("click", () => {
         if (links.length === 0) return;
         if (!confirm("Remove all links from this browser? (Server data is untouched.)")) return;
@@ -341,9 +438,9 @@
     });
 
     // ---- init -----------------------------------------------------------------
+    aliasPrefix.textContent = location.host + "/";
     renderLinks();
     pollHealth();
     setInterval(pollHealth, 20000);
-    // Freshen click counts on load so returning users see current numbers.
     if (links.length > 0) refreshAll();
 })();

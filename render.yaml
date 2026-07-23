@@ -15,6 +15,6 @@ services:
     autoDeploy: true             # redeploy on every push to the default branch
     envVars:
       # Set this in the Render dashboard to your live URL after the first deploy
-      # (e.g. https://url-shortener-api.onrender.com) so `shortUrl` reflects it.
+      # (e.g. https://afran-url-shortener.onrender.com) so `shortUrl` reflects it.
       - key: APP_BASE_URL
         sync: false
