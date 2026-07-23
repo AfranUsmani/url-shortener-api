@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
@@ -32,19 +33,33 @@ public class UrlController {
 
     private final UrlService service;
     private final QrCodeService qrCodeService;
-    private final String baseUrl;
+    private final String configuredBaseUrl;
 
     public UrlController(UrlService service, QrCodeService qrCodeService,
-                         @Value("${app.base-url}") String baseUrl) {
+                         @Value("${app.base-url:}") String configuredBaseUrl) {
         this.service = service;
         this.qrCodeService = qrCodeService;
-        this.baseUrl = baseUrl;
+        this.configuredBaseUrl = configuredBaseUrl;
+    }
+
+    /**
+     * The public base URL for building short links. Uses {@code app.base-url}
+     * when explicitly set (e.g. a branded domain), otherwise derives it from the
+     * current request — so links are correct on localhost, Render, or any host
+     * without configuration. Honors X-Forwarded-* via forward-headers-strategy.
+     */
+    private String baseUrl() {
+        if (configuredBaseUrl != null && !configuredBaseUrl.isBlank()) {
+            return configuredBaseUrl;
+        }
+        return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
     }
 
     @PostMapping
     @Operation(summary = "Create a short link for a given URL (optional custom alias and expiry)")
     public ResponseEntity<UrlResponse> create(@Valid @RequestBody CreateUrlRequest request) {
         UrlMapping mapping = service.create(request.url(), request.customAlias(), request.expiresAt());
+        String baseUrl = baseUrl();
         UrlResponse body = UrlResponse.from(mapping, baseUrl);
         URI location = UriComponentsBuilder.fromUriString(baseUrl)
                 .path("/api/v1/urls/{code}")
@@ -57,7 +72,7 @@ public class UrlController {
     @Operation(summary = "Fetch metadata and hit statistics for a short link")
     public ResponseEntity<UrlResponse> stats(@PathVariable String shortCode) {
         UrlMapping mapping = service.getMapping(shortCode);
-        return ResponseEntity.ok(UrlResponse.from(mapping, baseUrl));
+        return ResponseEntity.ok(UrlResponse.from(mapping, baseUrl()));
     }
 
     @GetMapping(value = "/{shortCode}/qr", produces = MediaType.IMAGE_PNG_VALUE)
@@ -66,7 +81,7 @@ public class UrlController {
                                      @RequestParam(defaultValue = "240") int size) {
         // 404s if the code is unknown, then encode the public short URL.
         service.getMapping(shortCode);
-        String shortUrl = baseUrl.replaceAll("/+$", "") + "/" + shortCode;
+        String shortUrl = baseUrl().replaceAll("/+$", "") + "/" + shortCode;
         byte[] png = qrCodeService.pngFor(shortUrl, size);
         return ResponseEntity.ok()
                 .contentType(MediaType.IMAGE_PNG)

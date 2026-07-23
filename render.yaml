@@ -3,10 +3,10 @@
 # No database/Redis needed: the default profile uses in-memory H2 + cache.
 services:
   - type: web
-    # NOTE: *.onrender.com subdomains are globally unique. "url-shortener-api"
-    # is already taken by another Render user, so this must be something unique
-    # to you — rename freely; your URL becomes https://<name>.onrender.com
-    name: afran-url-shortener
+    # Must match the existing Render service so a Blueprint apply updates it in
+    # place. *.onrender.com subdomains are globally unique; this one resolves to
+    # https://url-shortener-api-1716.onrender.com
+    name: url-shortener-api-1716
     runtime: docker
     plan: free
     region: singapore            # closest Render region to India; change if you prefer
@@ -14,7 +14,8 @@ services:
     healthCheckPath: /actuator/health
     autoDeploy: true             # redeploy on every push to the default branch
     envVars:
-      # Set this in the Render dashboard to your live URL after the first deploy
-      # (e.g. https://afran-url-shortener.onrender.com) so `shortUrl` reflects it.
+      # Optional. The app derives the public host from each request, so short
+      # URLs are correct without this. Set it only to force a specific host
+      # (e.g. a branded custom domain).
       - key: APP_BASE_URL
         sync: false
