@@ -27,6 +27,17 @@ curl -X POST https://url-shortener-api.onrender.com/api/v1/urls \
 
 ---
 
+## 📸 Screenshots
+
+Interactive API docs live at [`/swagger-ui.html`](https://url-shortener-api.onrender.com/swagger-ui.html).
+
+<!-- Generate these two assets with the guide in docs/README.md, then uncomment:
+![Swagger UI](docs/swagger.png)
+![API demo](docs/demo.gif)
+-->
+
+---
+
 ## ✨ Features
 
 - **REST API** to create short links and fetch per-link hit statistics.
@@ -201,6 +212,13 @@ src/main/java/io/github/afranusmani/urlshortener
 - [ ] Link expiration (TTL) and soft deletion
 - [ ] Per-client rate limiting (Bucket4j)
 - [ ] Testcontainers-based integration tests against real Postgres + Redis
+
+---
+
+## 📖 Deep dive
+
+Design decisions and the two bugs I caught only by running the service end-to-end:
+[**docs/writeup.md**](docs/writeup.md).
 
 ---
 
