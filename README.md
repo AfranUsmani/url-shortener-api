@@ -13,9 +13,13 @@ A production-grade URL shortener REST API built with **Java 21 + Spring Boot 3**
 
 ## 🌐 Live Demo
 
-- **API base:** https://url-shortener-api.onrender.com
-- **Swagger UI:** https://url-shortener-api.onrender.com/swagger-ui.html
+- **Dashboard (start here):** https://url-shortener-api.onrender.com/
+- **Swagger UI (for developers):** https://url-shortener-api.onrender.com/swagger-ui.html
+- **API base:** `https://url-shortener-api.onrender.com/api/v1/urls`
 - **Health:** https://url-shortener-api.onrender.com/actuator/health
+
+The root URL now serves a lightweight **web dashboard** — anyone can shorten a link,
+click it, and watch the click count update live, without touching Swagger or curl.
 
 ```bash
 curl -X POST https://url-shortener-api.onrender.com/api/v1/urls \
@@ -27,9 +31,28 @@ curl -X POST https://url-shortener-api.onrender.com/api/v1/urls \
 
 ---
 
+## 🖥️ Dashboard
+
+Served at the root path (`/`) as a zero-build, dependency-free single page
+(`src/main/resources/static/`). It's the non-technical front door to the same API
+that Swagger documents:
+
+- **Shorten** a URL and get a copy-ready short link with one click.
+- **Your links** table — every link you create is remembered in the browser
+  (`localStorage`) and its click count is refreshed from `GET /api/v1/urls/{code}`.
+- **Live stats** — links created, total clicks, and the most-clicked link.
+- **Health pill** — polls `/actuator/health` and shows the API status at a glance.
+- Handles the free-tier **cold start** gracefully (loading state + a heads-up note),
+  and prunes links the server no longer knows about after a restart.
+
+Because the page is served by the app itself, all calls are same-origin — no CORS,
+no separate frontend deployment.
+
+---
+
 ## 📸 Screenshots
 
-Interactive API docs live at [`/swagger-ui.html`](https://url-shortener-api.onrender.com/swagger-ui.html).
+The dashboard lives at [`/`](https://url-shortener-api.onrender.com/); interactive API docs live at [`/swagger-ui.html`](https://url-shortener-api.onrender.com/swagger-ui.html).
 
 <!-- Generate these two assets with the guide in docs/README.md, then uncomment:
 ![Swagger UI](docs/swagger.png)
@@ -46,6 +69,7 @@ Interactive API docs live at [`/swagger-ui.html`](https://url-shortener-api.onre
 - **Atomic hit counting** through a single `UPDATE` statement — no read-modify-write race.
 - **Consistent error contract** — every failure returns the same JSON `ApiError` shape.
 - **Observability out of the box** — Spring Boot Actuator health checks + a `/actuator/prometheus` scrape endpoint (Micrometer).
+- **Web dashboard** served at `/` — shorten links and track clicks live without touching Swagger or curl.
 - **Interactive API docs** via Swagger UI (springdoc-openapi).
 - **Runs with zero infrastructure locally** (H2 + in-memory cache) and a **production-like Docker Compose** stack (PostgreSQL + Redis).
 - **Tested** — unit tests for the encoder and service, plus a full-context integration test covering the create → redirect → stats flow.
@@ -202,6 +226,8 @@ src/main/java/io/github/afranusmani/urlshortener
 ├── dto          # request/response records
 ├── exception    # global handler + error contract
 └── config       # OpenAPI configuration
+
+src/main/resources/static   # web dashboard (index.html · styles.css · app.js)
 ```
 
 ---

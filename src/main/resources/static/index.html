@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="A simple dashboard for creating short links and tracking clicks — powered by the URL Shortener API." />
+    <title>Snip · URL Shortener Dashboard</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%97%3C/text%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <span class="logo">🔗</span>
+            <div>
+                <span class="brand-name">Snip</span>
+                <span class="brand-sub">URL Shortener</span>
+            </div>
+        </div>
+        <nav class="nav">
+            <span id="health-pill" class="pill pill-unknown" title="Service health">
+                <span class="dot"></span><span id="health-text">checking…</span>
+            </span>
+            <a href="/swagger-ui.html" target="_blank" rel="noopener">API Docs</a>
+            <a href="/actuator/prometheus" target="_blank" rel="noopener">Metrics</a>
+            <a href="https://github.com/AfranUsmani/url-shortener-api" target="_blank" rel="noopener">GitHub</a>
+        </nav>
+    </header>
+
+    <main class="container">
+        <section class="hero">
+            <h1>Shorten a link. Watch the clicks roll in.</h1>
+            <p class="lede">
+                Paste a long URL, get a compact short link, and share it. Every visit is
+                counted in real time — no sign-up, no setup.
+            </p>
+
+            <form id="create-form" class="create-card" autocomplete="off">
+                <label class="sr-only" for="url-input">URL to shorten</label>
+                <input
+                    id="url-input"
+                    name="url"
+                    type="url"
+                    inputmode="url"
+                    placeholder="https://example.com/a-very-long-link-to-shorten"
+                    required
+                />
+                <button id="create-btn" type="submit">
+                    <span class="btn-label">Shorten</span>
+                    <span class="spinner" hidden></span>
+                </button>
+            </form>
+            <p id="form-error" class="form-error" role="alert" hidden></p>
+            <p id="cold-note" class="cold-note" hidden>
+                ⏳ First request after idle can take ~30–60s while the free instance wakes up…
+            </p>
+
+            <div id="result" class="result-card" hidden>
+                <div class="result-main">
+                    <a id="result-short" class="result-short" href="#" target="_blank" rel="noopener"></a>
+                    <div class="result-actions">
+                        <button id="copy-btn" class="btn-ghost" type="button">Copy</button>
+                        <button id="open-btn" class="btn-ghost" type="button">Open ↗</button>
+                    </div>
+                </div>
+                <div class="result-dest">
+                    <span class="muted">redirects to</span>
+                    <span id="result-original"></span>
+                </div>
+            </div>
+        </section>
+
+        <section class="stats-row">
+            <div class="stat-card">
+                <span class="stat-value" id="stat-links">0</span>
+                <span class="stat-label">Links created</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value" id="stat-clicks">0</span>
+                <span class="stat-label">Total clicks</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value" id="stat-top">—</span>
+                <span class="stat-label">Most clicked</span>
+            </div>
+        </section>
+
+        <section class="links-section">
+            <div class="links-header">
+                <h2>Your links</h2>
+                <div class="links-tools">
+                    <button id="refresh-btn" class="btn-ghost" type="button" title="Re-fetch click counts for every link">
+                        ↻ Refresh clicks
+                    </button>
+                    <button id="clear-btn" class="btn-ghost btn-danger" type="button" title="Remove all links from this browser">
+                        Clear
+                    </button>
+                </div>
+            </div>
+
+            <div id="empty-state" class="empty-state">
+                <p>No links yet — shorten one above to get started.</p>
+                <p class="muted small">
+                    Links you create are remembered in this browser. Server data is stored
+                    in-memory and resets when the demo instance restarts.
+                </p>
+            </div>
+
+            <div class="table-wrap" id="table-wrap" hidden>
+                <table class="links-table">
+                    <thead>
+                        <tr>
+                            <th>Short link</th>
+                            <th>Destination</th>
+                            <th class="col-clicks">Clicks</th>
+                            <th class="col-created">Created</th>
+                            <th class="col-actions"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="links-body"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <span>Built on the <strong>URL Shortener API</strong> — Java 21 · Spring Boot 3 · cache-aside reads · Prometheus metrics.</span>
+        <span class="muted small">This dashboard talks to the same API documented in <a href="/swagger-ui.html" target="_blank" rel="noopener">Swagger</a>.</span>
+    </footer>
+
+    <div id="toast" class="toast" hidden></div>
+
+    <script src="/app.js" defer></script>
+</body>
+</html>
