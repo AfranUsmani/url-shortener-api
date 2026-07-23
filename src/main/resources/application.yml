@@ -21,12 +21,18 @@ spring:
       enabled: true
 
 app:
-  # Set APP_BASE_URL to the public host once deployed so `shortUrl` reflects it.
-  base-url: ${APP_BASE_URL:http://localhost:8080}
+  # Optional. Leave empty and the public host is derived from each request, so
+  # short URLs are correct on localhost, Render, or any custom domain with no
+  # config. Set it only to force a specific host (e.g. a branded domain).
+  base-url: ${APP_BASE_URL:}
 
 server:
   # Cloud platforms (Render, Cloud Run, Koyeb, ...) inject the port via $PORT.
   port: ${PORT:8080}
+  # Honor X-Forwarded-* from the platform's TLS-terminating proxy so the
+  # request-derived base URL reflects https://<public-host>, not the internal
+  # http://<container>:<port>.
+  forward-headers-strategy: framework
 
 management:
   endpoints:
@@ -70,7 +76,7 @@ spring:
       port: ${REDIS_PORT:6379}
 
 app:
-  base-url: ${APP_BASE_URL:http://localhost:8080}
+  base-url: ${APP_BASE_URL:}
 
 management:
   health:
