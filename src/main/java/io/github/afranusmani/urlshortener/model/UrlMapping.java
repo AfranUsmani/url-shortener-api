@@ -31,7 +31,7 @@ public class UrlMapping {
     @SequenceGenerator(name = "url_mapping_seq", sequenceName = "url_mapping_seq", allocationSize = 1)
     private Long id;
 
-    @Column(name = "short_code", nullable = false, unique = true, length = 16)
+    @Column(name = "short_code", nullable = false, unique = true, length = 64)
     private String shortCode;
 
     @Column(name = "original_url", nullable = false, length = 2048)
@@ -43,14 +43,23 @@ public class UrlMapping {
     @Column(name = "hit_count", nullable = false)
     private long hitCount;
 
+    /** Optional link expiry; {@code null} means the link never expires. */
+    @Column(name = "expires_at")
+    private Instant expiresAt;
+
     protected UrlMapping() {
         // Required by JPA.
     }
 
     public UrlMapping(String originalUrl) {
+        this(originalUrl, null);
+    }
+
+    public UrlMapping(String originalUrl, Instant expiresAt) {
         this.originalUrl = originalUrl;
         this.createdAt = Instant.now();
         this.hitCount = 0L;
+        this.expiresAt = expiresAt;
     }
 
     /**
@@ -90,5 +99,18 @@ public class UrlMapping {
 
     public long getHitCount() {
         return hitCount;
+    }
+
+    public Instant getExpiresAt() {
+        return expiresAt;
+    }
+
+    public void setExpiresAt(Instant expiresAt) {
+        this.expiresAt = expiresAt;
+    }
+
+    /** @return {@code true} if an expiry is set and already in the past. */
+    public boolean isExpired() {
+        return expiresAt != null && expiresAt.isBefore(Instant.now());
     }
 }

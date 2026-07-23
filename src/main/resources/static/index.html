@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="A simple dashboard for creating short links and tracking clicks — powered by the URL Shortener API." />
+    <meta name="description" content="Create short links with custom aliases, QR codes, expiry and click analytics — powered by the URL Shortener API." />
     <title>Snip · URL Shortener Dashboard</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%97%3C/text%3E%3C/svg%3E" />
     <link rel="stylesheet" href="/styles.css" />
@@ -31,41 +31,78 @@
         <section class="hero">
             <h1>Shorten a link. Watch the clicks roll in.</h1>
             <p class="lede">
-                Paste a long URL, get a compact short link, and share it. Every visit is
-                counted in real time — no sign-up, no setup.
+                Paste a long URL, add a custom alias or expiry if you like, and share it —
+                with a QR code and real-time click analytics baked in.
             </p>
 
             <form id="create-form" class="create-card" autocomplete="off">
-                <label class="sr-only" for="url-input">URL to shorten</label>
-                <input
-                    id="url-input"
-                    name="url"
-                    type="url"
-                    inputmode="url"
-                    placeholder="https://example.com/a-very-long-link-to-shorten"
-                    required
-                />
-                <button id="create-btn" type="submit">
-                    <span class="btn-label">Shorten</span>
-                    <span class="spinner" hidden></span>
+                <div class="create-row">
+                    <label class="sr-only" for="url-input">URL to shorten</label>
+                    <input
+                        id="url-input"
+                        name="url"
+                        type="url"
+                        inputmode="url"
+                        placeholder="https://example.com/a-very-long-link-to-shorten"
+                        required
+                    />
+                    <button id="create-btn" type="submit">
+                        <span class="btn-label">Shorten</span>
+                        <span class="spinner" hidden></span>
+                    </button>
+                </div>
+
+                <button type="button" id="adv-toggle" class="adv-toggle" aria-expanded="false">
+                    <span class="chev">▸</span> Options — custom alias &amp; expiry
                 </button>
+                <div id="adv-options" class="adv-options" hidden>
+                    <div class="adv-field">
+                        <label for="alias-input">Custom alias <span class="muted small">(optional)</span></label>
+                        <div class="alias-wrap">
+                            <span class="alias-prefix" id="alias-prefix">/</span>
+                            <input id="alias-input" name="customAlias" type="text"
+                                   placeholder="my-link" pattern="[A-Za-z0-9_-]{3,32}"
+                                   title="3–32 letters, digits, - or _" />
+                        </div>
+                    </div>
+                    <div class="adv-field">
+                        <label for="expiry-select">Expires</label>
+                        <select id="expiry-select" name="expiry">
+                            <option value="0">Never</option>
+                            <option value="3600">In 1 hour</option>
+                            <option value="86400">In 1 day</option>
+                            <option value="604800">In 7 days</option>
+                            <option value="2592000">In 30 days</option>
+                        </select>
+                    </div>
+                </div>
             </form>
+
             <p id="form-error" class="form-error" role="alert" hidden></p>
             <p id="cold-note" class="cold-note" hidden>
                 ⏳ First request after idle can take ~30–60s while the free instance wakes up…
             </p>
 
             <div id="result" class="result-card" hidden>
-                <div class="result-main">
-                    <a id="result-short" class="result-short" href="#" target="_blank" rel="noopener"></a>
-                    <div class="result-actions">
-                        <button id="copy-btn" class="btn-ghost" type="button">Copy</button>
-                        <button id="open-btn" class="btn-ghost" type="button">Open ↗</button>
+                <div class="result-body">
+                    <div class="result-left">
+                        <div class="result-main">
+                            <a id="result-short" class="result-short" href="#" target="_blank" rel="noopener"></a>
+                            <div class="result-actions">
+                                <button id="copy-btn" class="btn-ghost" type="button">Copy</button>
+                                <button id="open-btn" class="btn-ghost" type="button">Open ↗</button>
+                            </div>
+                        </div>
+                        <div class="result-dest">
+                            <span class="muted">redirects to</span>
+                            <span id="result-original"></span>
+                        </div>
+                        <div id="result-expiry" class="result-expiry muted small" hidden></div>
                     </div>
-                </div>
-                <div class="result-dest">
-                    <span class="muted">redirects to</span>
-                    <span id="result-original"></span>
+                    <div class="result-qr">
+                        <img id="result-qr-img" alt="QR code for the short link" width="120" height="120" />
+                        <a id="result-qr-dl" class="qr-dl small" download>Download QR</a>
+                    </div>
                 </div>
             </div>
         </section>
@@ -124,9 +161,18 @@
     </main>
 
     <footer class="footer">
-        <span>Built on the <strong>URL Shortener API</strong> — Java 21 · Spring Boot 3 · cache-aside reads · Prometheus metrics.</span>
+        <span>Built on the <strong>URL Shortener API</strong> — Java 21 · Spring Boot 3 · cache-aside reads · async click analytics · Prometheus metrics.</span>
         <span class="muted small">This dashboard talks to the same API documented in <a href="/swagger-ui.html" target="_blank" rel="noopener">Swagger</a>.</span>
     </footer>
+
+    <!-- Reusable modal for QR + analytics -->
+    <div id="modal" class="modal" hidden>
+        <div class="modal-backdrop" data-close></div>
+        <div class="modal-card" role="dialog" aria-modal="true">
+            <button class="modal-close" type="button" data-close aria-label="Close">✕</button>
+            <div id="modal-content"></div>
+        </div>
+    </div>
 
     <div id="toast" class="toast" hidden></div>
 

@@ -12,6 +12,9 @@ public interface UrlRepository extends JpaRepository<UrlMapping, Long> {
 
     Optional<UrlMapping> findByShortCode(String shortCode);
 
+    /** Used to reject a custom alias before insert with a friendly 409. */
+    boolean existsByShortCode(String shortCode);
+
     /**
      * Atomically increments the hit counter in a single statement, avoiding a
      * read-modify-write race on the hot redirect path.

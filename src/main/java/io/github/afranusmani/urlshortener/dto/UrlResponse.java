@@ -12,17 +12,25 @@ public record UrlResponse(
         String shortUrl,
         String originalUrl,
         long hitCount,
-        Instant createdAt
+        Instant createdAt,
+        Instant expiresAt,
+        boolean expired,
+        String qrCodeUrl
 ) {
 
     public static UrlResponse from(UrlMapping mapping, String baseUrl) {
-        String shortUrl = baseUrl.replaceAll("/+$", "") + "/" + mapping.getShortCode();
+        String base = baseUrl.replaceAll("/+$", "");
+        String shortUrl = base + "/" + mapping.getShortCode();
+        String qrCodeUrl = base + "/api/v1/urls/" + mapping.getShortCode() + "/qr";
         return new UrlResponse(
                 mapping.getShortCode(),
                 shortUrl,
                 mapping.getOriginalUrl(),
                 mapping.getHitCount(),
-                mapping.getCreatedAt()
+                mapping.getCreatedAt(),
+                mapping.getExpiresAt(),
+                mapping.isExpired(),
+                qrCodeUrl
         );
     }
 }

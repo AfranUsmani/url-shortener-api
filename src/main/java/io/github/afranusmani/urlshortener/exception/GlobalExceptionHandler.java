@@ -1,6 +1,7 @@
 package io.github.afranusmani.urlshortener.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -21,6 +22,29 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleNotFound(ShortCodeNotFoundException ex,
                                                    HttpServletRequest request) {
         return build(HttpStatus.NOT_FOUND, List.of(ex.getMessage()), request);
+    }
+
+    @ExceptionHandler(LinkExpiredException.class)
+    public ResponseEntity<ApiError> handleExpired(LinkExpiredException ex,
+                                                  HttpServletRequest request) {
+        return build(HttpStatus.GONE, List.of(ex.getMessage()), request);
+    }
+
+    @ExceptionHandler(AliasAlreadyExistsException.class)
+    public ResponseEntity<ApiError> handleAliasTaken(AliasAlreadyExistsException ex,
+                                                     HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, List.of(ex.getMessage()), request);
+    }
+
+    /**
+     * Backstop for the unique short-code index: covers the race where a custom
+     * alias is taken between the availability check and insert (and the rare case
+     * of a generated code clashing with an existing alias).
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> handleConflict(DataIntegrityViolationException ex,
+                                                   HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, List.of("Short code already in use"), request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
