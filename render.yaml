@@ -3,7 +3,10 @@
 # No database/Redis needed: the default profile uses in-memory H2 + cache.
 services:
   - type: web
-    name: url-shortener-api
+    # NOTE: *.onrender.com subdomains are globally unique. "url-shortener-api"
+    # is already taken by another Render user, so this must be something unique
+    # to you — rename freely; your URL becomes https://<name>.onrender.com
+    name: afran-url-shortener
     runtime: docker
     plan: free
     region: singapore            # closest Render region to India; change if you prefer
